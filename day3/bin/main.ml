@@ -128,68 +128,15 @@ let get_at_coords grid x y = List.nth_exn (List.nth_exn grid y) x
 let remove_duplicates grid coords =
   List.dedup_and_sort coords ~compare:(fun (x, y) (x', y') ->
     if y = y'
-    then (
-      printf "x: %d x': %d\n" x x';
+    then
       if abs (x - x') = 2
-      then (
-        printf "in_between: %c\n" @@ get_at_coords grid (min x x' + 1) y;
-        if Char.is_digit @@ get_at_coords grid (min x x' + 1) y
-        then (
-          printf "removing %d %d\n" x y;
-          0)
-        else 1)
+      then if Char.is_digit @@ get_at_coords grid (min x x' + 1) y then 0 else 1
       else (
         let num = get_num_from_pos grid x y in
         let num' = get_num_from_pos grid x' y' in
-        Int.compare num num'))
+        Int.compare num num')
     else Int.compare y y')
 ;;
-
-let unit_test_input = {|...489.
-66*....
-...447.|}
-
-let unit_test = transform_input (String.split_lines unit_test_input)
-
-let gears =
-  List.mapi unit_test ~f:(fun y line ->
-    List.mapi line ~f:(fun x c -> if is_gear c then Some (x, y) else None))
-  |> List.concat
-  |> List.filter_opt
-;;
-
-let adjacent =
-  List.map gears ~f:(fun (x, y) -> get_adjacent_coords x y)
-  |> List.filter_map ~f:(fun coords ->
-    let coords =
-      List.filter coords ~f:(fun (x, y) -> Char.is_digit @@ get_at_coords unit_test x y)
-      |> remove_duplicates unit_test
-    in
-    Some coords)
-;;
-
-List.iter adjacent ~f:(fun coords ->
-  List.iter coords ~f:(fun (x, y) -> printf "%d %d\n" x y);
-  printf "\n")
-
-let nums =
-  List.map adjacent ~f:(List.map ~f:(fun (x, y) -> get_num_from_pos unit_test x y))
-;;
-
-List.iter nums ~f:(fun nums ->
-  List.iter nums ~f:(fun num -> printf "%d " num);
-  printf "\n")
-
-let expected = [ [ 2, 1; 4, 1 ]; [ 2, 3; 4, 3 ] ]
-
-let out =
-  List.equal
-    (fun a b -> List.equal (fun (x, y) (x', y') -> x = x' && y = y') a b)
-    adjacent
-    expected
-;;
-
-let () = assert out
 
 let () =
   let input = In_channel.read_lines "input.txt" in
@@ -202,17 +149,6 @@ let () =
   let nums = List.map adjacent ~f:(fun (x, y) -> get_num_from_pos input x y) in
   let sum = List.fold nums ~init:0 ~f:( + ) in
   printf "Part 1: %d\n" sum;
-  let duplicates =
-    get_adjacent_coords 4 2
-    |> List.filter ~f:(fun (x, y) -> Char.is_digit @@ get_at_coords input x y)
-  in
-  let out =
-    List.dedup_and_sort duplicates ~compare:(fun (x, y) (x', y') ->
-      let num = get_num_from_pos input x y in
-      let num' = get_num_from_pos input x' y' in
-      Int.compare num num')
-  in
-  List.iter out ~f:(fun (x, y) -> printf "%d %d\n" x y);
   let gears =
     List.mapi input ~f:(fun y line ->
       List.mapi line ~f:(fun x c -> if is_gear c then Some (x, y) else None))
