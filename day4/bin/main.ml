@@ -45,43 +45,45 @@ let score line ~score_func =
   score_func score
 ;;
 
+let get_next line_num score =
+  let rec get_next' line_num score acc =
+    match score with
+    | 0 -> acc
+    | _ -> get_next' (line_num + 1) (score - 1) (line_num + 1 :: acc)
+  in
+  get_next' line_num score []
+;;
+
+let rec inc to_change values mult_value =
+  match values with
+  | [] -> to_change
+  | h :: t ->
+    inc
+      (List.mapi to_change ~f:(fun i v -> if i = h then v + (1 * mult_value) else v))
+      t
+      mult_value
+;;
+
 let play_game cards =
-  let rec get_next index n =
-    match n with
-    | 0 -> []
-    | _ -> index :: get_next (index + 1) (n - 1)
+  let scores = List.map cards ~f:(fun card -> score card ~score_func:(fun a -> a)) in
+  let empty = List.map scores ~f:(fun _ -> 0) in
+  let start = List.map scores ~f:(fun _ -> 1) in
+  let rec inner cards i acc score =
+    match cards with
+    | [] -> acc, score
+    | h :: t ->
+      let next_things = get_next i @@ List.nth_exn scores i in
+      let next_cards = inc acc next_things h in
+      inner t (i + 1) next_cards (score + h)
   in
-  let round_score =
-    List.map cards ~f:(fun line ->
-      let i, _, _ = line in
-      i, score line ~score_func:(fun l -> l))
-    |> Map.of_alist_exn (module Int)
+  let rec play to_do score =
+    if List.exists to_do ~f:(fun v -> not (v = 0))
+    then (
+      let to_do, score = inner to_do 0 empty score in
+      play to_do score)
+    else score
   in
-  let rec play_game_hashmap cards acc =
-    Map.to_sequence cards
-    |> Sequence.to_list
-    |> List.map ~f:(fun (k, v) ->
-      let score = Map.find_exn round_score k in
-      let next = get_next k score in
-      let next = List.init v ~f:(fun _ -> next) |> List.concat in
-      let rec update_map cards map =
-        match cards with
-        | [] -> map
-        | h :: t ->
-          Map.update map h ~f:(fun v ->
-            match v with
-            | Some v -> v + 1
-            | None -> 1)
-          |> update_map t
-      in
-      let new_cards = update_map next cards in
-      play_game_hashmap new_cards (acc + 1))
-    |> List.fold ~init:acc ~f:( + )
-  in
-  let cards =
-    List.map cards ~f:(fun (i, _, _) -> i, 0) |> Map.of_alist_exn (module Int)
-  in
-  play_game_hashmap cards 0
+  play start 0
 ;;
 
 let () =
