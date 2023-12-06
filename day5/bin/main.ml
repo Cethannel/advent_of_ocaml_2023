@@ -61,6 +61,7 @@ let gen_map input =
     | line :: lines ->
       (match String.split line ~on:' ' with
        | [ start; end_; value ] ->
+         printf "start: %s, end: %s, value: %s\n" start end_ value;
          let start = Int.of_string start in
          let end_ = Int.of_string end_ in
          let value = Int.of_string value in
