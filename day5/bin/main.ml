@@ -37,6 +37,8 @@ humidity-to-location map:
 56 93 4|}
 ;;
 
+let _ = test_input
+
 let get_seeds input =
   let first_line = String.split_lines input |> List.hd_exn in
   let seeds_string = List.nth_exn (String.split_on_chars first_line ~on:[ ':' ]) 1 in
@@ -50,10 +52,12 @@ let get_seeds input =
 
 let gen_map input =
   let lines = String.split_lines input in
-  let rec add_range start end_ map value =
-    if start > end_
+  let rec add_range to_ from map amount =
+    if amount < 0
     then map
-    else add_range (start + 1) end_ (Map.set map ~key:start ~data:value) value
+    else (
+      let new_map = Map.set map ~key:from ~data:to_ in
+      add_range (to_ + 1) (from + 1) new_map (amount - 1))
   in
   let rec loop lines acc =
     match lines with
@@ -94,20 +98,18 @@ let get_value map key =
     | Some v -> v
     | None -> key
   in
-  printf "key: %d, value: %d\n" key a;
   a
 ;;
 
 let () =
-  let seeds = get_seeds test_input in
+  let input = In_channel.read_all "input.txt" in
+  let seeds = get_seeds input in
   let seed_to_soil =
     get_map_string "seed-to-soil" test_input
     |> List.rev
     |> String.concat ~sep:"\n"
     |> gen_map
   in
-  printf "Seed to soil:\n";
-  Map.iteri seed_to_soil ~f:(fun ~key ~data -> printf "%d -> %d\n" key data);
   let soil_to_fertilizer =
     get_map_string "soil-to-fertilizer" test_input
     |> List.rev
