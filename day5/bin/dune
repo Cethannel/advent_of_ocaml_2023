@@ -1,4 +1,4 @@
 (executable
  (public_name day5)
  (name main)
- (libraries day5 base stdio))
+ (libraries day5 base stdio lwt lwt.unix))
