@@ -51,6 +51,23 @@ let gen_permutations input_line count =
       match v with
       | Unknown -> Two (Working, Not_working)
       | _ -> One v)
+    |> List.fold ~init:[] ~f:(fun acc v ->
+      match acc with
+      | [] -> [ v ]
+      | [ One Not_working ] ->
+        if List.hd_exn count = 1
+        then (
+          match v with
+          | Two _ ->
+            print_endline "Here";
+            List.iteri input_line ~f:(fun i v ->
+              if i = 0 then print_string " ";
+              print_string @@ show_spring v);
+            print_endline "";
+            acc @ [ One Working ]
+          | _ -> acc @ [ v ])
+        else acc @ [ v ]
+      | _ -> acc @ [ v ])
     |> List.fold ~init:[ [] ] ~f:(fun acc v ->
       List.map acc ~f:(fun l ->
         match v with
@@ -152,19 +169,27 @@ let part2 input =
   let springs = List.map ~f:get_springs lines in
   let springs =
     List.map springs ~f:(fun l ->
-      List.init 5 ~f:(fun _ -> l) |> List.intersperse ~sep:[ Unknown ] |> List.concat)
+      l :: List.init 4 ~f:(fun _ -> Unknown :: l) |> List.concat)
   in
   let counts = List.map ~f:get_count lines in
   let counts = List.map counts ~f:(fun l -> List.init 5 ~f:(fun _ -> l) |> List.concat) in
   let zipped = List.zip_exn springs counts in
+  print_endline "Zipped";
+  let i = ref 0 in
   let permutations =
-    List.map ~f:(fun (spring, count) -> gen_permutations spring count) zipped
+    List.map
+      ~f:(fun (spring, count) ->
+        printf "Iteration: %d" !i;
+        print_endline "";
+        i := !i + 1;
+        let spring, count = gen_permutations spring count in
+        printf "Spring: %d" (List.length spring);
+        print_endline "";
+        filter_permutation spring count |> List.length)
+      zipped
   in
   print_endline "Permutations";
-  let filtered =
-    List.map permutations ~f:(fun (spring, count) -> filter_permutation spring count)
-  in
-  List.length @@ List.concat filtered
+  List.fold permutations ~init:0 ~f:( + )
 ;;
 
 let test_input =
@@ -180,8 +205,13 @@ let () =
   let out = part1 test_input in
   printf "Out: %d\n" out;
   assert (out = 21);
+  let input = In_channel.read_all "input.txt" in
+  let out = part1 input in
+  assert (out = 7674);
+  print_endline "Part 2";
   let out = part2 test_input in
   printf "Out: %d\n" out;
+  assert (1 = 2);
   assert (out = 525152)
 ;;
 
