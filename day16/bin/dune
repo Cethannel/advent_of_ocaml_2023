@@ -1,0 +1,6 @@
+(executable
+ (public_name day16)
+ (name main)
+ (libraries day16 base stdio ppx_expect)
+ (preprocess
+  (pps ppx_expect)))

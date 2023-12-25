@@ -1,0 +1,6 @@
+(test
+ (name test_day16)
+ (libraries day16 stdio ppx_expect)
+(preprocess
+  (pps ppx_expect))
+ )
