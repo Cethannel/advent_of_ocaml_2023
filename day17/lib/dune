@@ -1,0 +1,6 @@
+(library
+ (name day17)
+ (libraries base stdio ppx_expect ppx_sexp_conv ppx_compare parmap)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect ppx_inline_test ppx_sexp_conv ppx_compare)))
