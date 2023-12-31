@@ -1,8 +1,6 @@
 open Base
 open Stdio
 
-let _ = printf
-
 type direction =
   | Up
   | Down
@@ -16,6 +14,8 @@ let direction_to_string = function
   | Right -> ">"
 ;;
 
+let _ = direction_to_string
+
 let is_oposite d1 d2 =
   match d1, d2 with
   | Up, Down -> true
@@ -24,6 +24,8 @@ let is_oposite d1 d2 =
   | Right, Left -> true
   | _ -> false
 ;;
+
+let _ = is_oposite
 
 let same_direction d1 d2 =
   match d1, d2 with
@@ -34,14 +36,51 @@ let same_direction d1 d2 =
   | _ -> false
 ;;
 
+type turn_direction =
+  | Left
+  | Right
+  | Straight
+
 type state =
   { x : int
   ; y : int
   ; direction : direction
   ; num_steps : int
+  ; heat_loss : int
   }
 
-let part1 input =
+let gen_next_direction state next_direction =
+  let { x; y; direction; num_steps; _ } = state in
+  match next_direction with
+  | Straight ->
+    (match direction with
+     | Up -> { state with y = y - 1; num_steps = num_steps + 1 }
+     | Down -> { state with y = y + 1; num_steps = num_steps + 1 }
+     | Left -> { state with x = x - 1; num_steps = num_steps + 1 }
+     | Right -> { state with x = x + 1; num_steps = num_steps + 1 })
+  | Left ->
+    (match direction with
+     | Up -> { state with x = x - 1; direction = Left; num_steps = 1 }
+     | Down -> { state with x = x + 1; direction = Right; num_steps = 1 }
+     | Left -> { state with y = y + 1; direction = Down; num_steps = 1 }
+     | Right -> { state with y = y - 1; direction = Up; num_steps = 1 })
+  | Right ->
+    (match direction with
+     | Up -> { state with x = x + 1; direction = Right; num_steps = 1 }
+     | Down -> { state with x = x - 1; direction = Left; num_steps = 1 }
+     | Left -> { state with y = y - 1; direction = Up; num_steps = 1 }
+     | Right -> { state with y = y + 1; direction = Down; num_steps = 1 })
+;;
+
+module StateCompare = struct
+  type t = state
+
+  let compare { heat_loss = hl1; _ } { heat_loss = hl2; _ } = hl1 - hl2
+end
+
+module Heap = Containers.Heap.Make_from_compare (StateCompare)
+
+let solve input min max =
   let lines = String.split_lines input in
   let input =
     List.map lines ~f:(fun line ->
@@ -50,78 +89,72 @@ let part1 input =
   let map = Array.of_list_map input ~f:Array.of_list in
   let max_x = Array.length map.(0) - 1 in
   let max_y = Array.length map - 1 in
-  let last_direction = ref Right in
-  let rec loop state searched poses =
-    let { x; y; num_steps; direction } = state in
-    if same_direction direction !last_direction
-    then print_endline @@ direction_to_string direction;
-    last_direction := direction;
-    let heat_loss = map.(y).(x) in
-    let searched = (x, y) :: searched in
-    if x = max_x && y = max_y
-    then (x, y) :: poses, searched, heat_loss
-    else (
-      let to_search =
-        [ { x = x + 1; y; direction = Right; num_steps = num_steps + 1 }
-        ; { x = x - 1; y; direction = Left; num_steps = num_steps + 1 }
-        ; { x; y = y + 1; direction = Down; num_steps = num_steps + 1 }
-        ; { x; y = y - 1; direction = Up; num_steps = num_steps + 1 }
-        ]
-      in
-      let to_search =
-        List.map to_search ~f:(fun new_state ->
-          let { direction; num_steps; _ } = new_state in
-          if same_direction direction state.direction
-          then { new_state with num_steps = num_steps + 1 }
-          else { new_state with num_steps = 1 })
-      in
-      let to_search =
-        List.filter to_search ~f:(fun { direction; _ } ->
-          not (is_oposite direction state.direction))
-      in
-      let to_search =
-        List.filter to_search ~f:(fun { x; y; _ } ->
-          x >= 0 && x <= max_x && y >= 0 && y <= max_y)
-      in
-      let to_search =
-        List.filter to_search ~f:(fun { x; y; _ } ->
-          not
-            (List.mem searched (x, y) ~equal:(fun (x1, y1) (x2, y2) -> x1 = x2 && y1 = y2)))
-      in
-      let to_search =
-        List.filter to_search ~f:(fun { direction; num_steps; _ } ->
-          if same_direction direction state.direction then num_steps <= 3 else true)
-      in
-      if List.is_empty to_search
-      then (x, y) :: poses, searched, Int.max_value
+  let rec loop to_visit visited =
+    match Heap.take to_visit with
+    | None -> failwith "no solution"
+    | Some (to_visit, state) ->
+      let { x; y; num_steps; heat_loss; _ } = state in
+      if x < 0 || y < 0 || x > max_x || y > max_y
+      then loop to_visit visited
       else (
-        let poses, searched', new_heat_loss =
-          List.fold
-            to_search
-            ~init:(poses, searched, Int.max_value)
-            ~f:(fun (poses, searched, heat_loss) state ->
-              let poses', searched', heat_loss' = loop state searched ((x, y) :: poses) in
-              if heat_loss' < heat_loss
-              then poses', searched', heat_loss'
-              else poses, searched, heat_loss)
-        in
-        if new_heat_loss = Int.max_value
-        then poses, searched, heat_loss
-        else poses, searched', heat_loss + new_heat_loss))
+        if heat_loss > 200
+        then (
+          printf "%d %d %d %d\n" x y num_steps heat_loss;
+          printf "%d" List.(length visited);
+          print_endline "");
+        let new_heat_loss = map.(y).(x) in
+        if x = max_x && y = max_y && num_steps >= min
+        then heat_loss + new_heat_loss
+        else if List.mem
+                  visited
+                  state
+                  ~equal:
+                    (fun
+                      { x; y; num_steps; direction; _ }
+                      { x = x'
+                      ; y = y'
+                      ; num_steps = num_steps'
+                      ; direction = direction'
+                      ; _
+                      }
+                    ->
+                    x = x'
+                    && y = y'
+                    && num_steps = num_steps'
+                    && same_direction direction direction')
+        then loop to_visit visited
+        else (
+          let state = { state with heat_loss = heat_loss + new_heat_loss } in
+          let visited = state :: visited in
+          let to_visit =
+            if num_steps >= min
+            then Heap.add to_visit (gen_next_direction state Left)
+            else to_visit
+          in
+          let to_visit =
+            if num_steps >= min
+            then Heap.add to_visit (gen_next_direction state Right)
+            else to_visit
+          in
+          let to_visit =
+            if num_steps < max
+            then Heap.add to_visit (gen_next_direction state Straight)
+            else to_visit
+          in
+          loop to_visit visited))
   in
-  let poses, _, heat_loss =
-    loop { x = 0; y = 0; direction = Right; num_steps = 1 } [] [ 0, 0 ]
+  let start_state =
+    [ { x = 0; y = 0; direction = Right; num_steps = 1; heat_loss = 0 }
+    ; { x = 0; y = 0; direction = Down; num_steps = 1; heat_loss = 0 }
+    ]
   in
-  Array.iteri map ~f:(fun y row ->
-    Array.iteri row ~f:(fun x heat ->
-      if List.mem poses (x, y) ~equal:(fun (x1, y1) (x2, y2) -> x1 = x2 && y1 = y2)
-      then printf "O"
-      else printf "%d" heat);
-    print_endline "");
-  heat_loss
+  let heap = Heap.of_list start_state in
+  let heat_loss = loop heap [] in
+  heat_loss - map.(0).(0)
 ;;
 
-let part2 _input = 0
+let part1 input = solve input 0 3
+let part2 input = solve input 4 10
 
 let example_input =
   {|2413432311323
@@ -139,10 +172,25 @@ let example_input =
 4322674655533|}
 ;;
 
+let test_part1 () =
+  let out = part1 example_input in
+  printf "%d\n" out;
+  assert (out = 102)
+;;
+
 let%test "example 1" =
   let out = part1 example_input in
   printf "%d\n" out;
   out = 102
 ;;
 
-let%test "example 2" = part2 example_input = 202
+let%test "example 2" = part2 example_input = 94
+
+let example_input2 = {|111111111111
+999999999991
+999999999991
+999999999991
+999999999991|}
+
+let _ = example_input2
+let%test "example 3" = part2 example_input2 = 71
