@@ -1,0 +1,6 @@
+(library
+ (name day18)
+ (libraries base stdio ppx_deriving ppx_sexp_conv ppx_compare)
+ (inline_tests)
+ (preprocess
+  (pps ppx_deriving.show ppx_sexp_conv ppx_compare ppx_inline_test)))
